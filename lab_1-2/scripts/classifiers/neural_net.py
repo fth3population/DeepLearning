@@ -6,6 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from past.builtins import xrange
 
+from scripts.layers import softmax_loss, affine_forward, affine_backward
+from scripts.layer_utils import affine_relu_forward, affine_relu_backward
+
 class TwoLayerNet(object):
     """
     A two-layer fully-connected neural network. The net has an input dimension of
@@ -80,9 +83,13 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+        Z1 = X.dot(W1) + b1
+        A1 = np.maximum(0, Z1)
 
-        X2 = np.maximum(0, np.dot(X, W1) + b1)
-        scores = np.dot(X2, W2) + b2
+        Z2 = A1.dot(W2) + b2
+        A2 = Z2
+
+        scores = A2
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -100,12 +107,15 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        index = list(range(N))
+        correct_class_scores = scores[range(N), y].reshape((N, 1))
+        correct_matrix = np.zeros(scores.shape)
+        correct_matrix[range(N), y] = 1
 
-        scores = np.exp(scores - np.max(scores)) 
-        prob_sum = np.sum(scores, axis=1)
-        
-        loss = -np.sum(np.log(scores[index ,y]/prob_sum)) / N + 0.5 * reg * (np.sum(W1*W1) + np.sum(W2*W2))
+        scores_e = np.exp(scores)
+        scores_e_sum = np.sum(scores_e, axis=1).reshape((N, 1))
+
+        loss = np.sum(-1 * correct_class_scores + np.log(scores_e_sum)) / N
+        loss += 0.5 * reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -118,20 +128,15 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        dscores = scores / prob_sum[:,np.newaxis]
-        dscores[index,y] -= 1
-        dscores /= N
-        
-        db2 = np.sum(dscores, axis=0)        
-        dW2 = np.dot(X2.T, dscores)        
-        dW2 += 2*reg*W2
-        dX2 = np.dot(dscores, W2.T)
-        
-        dout1 = (np.dot(X, W1) + b1 > 0)*dX2
-        db1 = np.sum(dout1,axis=0)        
-        dW1 = np.dot(X.T,dout1)
-        dW1 += 2*reg*W1
-        grads = {'W1':dW1,'W2':dW2, 'b1':db1, 'b2':db2}
+        B = np.full((N, 1), 1.0)
+
+        dL = (scores_e / scores_e_sum - correct_matrix) / N
+        grads['W2'] = A1.T.dot(dL) + reg * W2
+        grads['b2'] = B.T.dot(dL)
+
+        dA1 = dL.dot(W2.T) * (Z1 > 0)
+        grads['W1'] = X.T.dot(dA1) + reg * W1
+        grads['b1'] = B.T.dot(dA1)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -176,9 +181,9 @@ class TwoLayerNet(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            batch_ids = np.random.choice(np.arange(num_train), batch_size, replace = True)
-            X_batch = X[batch_ids]
-            y_batch = y[batch_ids]
+            sample_idx = np.random.choice(num_train, batch_size)
+            X_batch = X[sample_idx]
+            y_batch = y[sample_idx]
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -194,8 +199,8 @@ class TwoLayerNet(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            for key in self.params.keys():
-                self.params[key] -= learning_rate * grads[key] 
+            for w in self.params:
+                self.params[w] -= grads[w].reshape(self.params[w].shape) * learning_rate
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -241,7 +246,8 @@ class TwoLayerNet(object):
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        y_pred = np.argmax(self.loss(X), axis = 1)
+        scores = self.loss(X)
+        y_pred = np.argmax(scores, axis=1)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 

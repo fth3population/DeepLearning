@@ -115,7 +115,7 @@ class TwoLayerNet(object):
         scores_e_sum = np.sum(scores_e, axis=1).reshape((N, 1))
 
         loss = np.sum(-1 * correct_class_scores + np.log(scores_e_sum)) / N
-        loss += 0.5 * reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
+        loss += reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -131,12 +131,12 @@ class TwoLayerNet(object):
         B = np.full((N, 1), 1.0)
 
         dL = (scores_e / scores_e_sum - correct_matrix) / N
-        grads['W2'] = A1.T.dot(dL) + reg * W2
-        grads['b2'] = B.T.dot(dL)
+        grads['W2'] = A1.T.dot(dL) + 2 * reg * W2
+        grads['b2'] = dL.sum(axis=0)
 
         dA1 = dL.dot(W2.T) * (Z1 > 0)
-        grads['W1'] = X.T.dot(dA1) + reg * W1
-        grads['b1'] = B.T.dot(dA1)
+        grads['W1'] = X.T.dot(dA1) + 2* reg * W1
+        grads['b1'] = dA1.sum(axis=0)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
